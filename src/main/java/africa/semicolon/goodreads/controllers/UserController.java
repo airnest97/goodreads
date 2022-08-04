@@ -7,6 +7,7 @@ import africa.semicolon.goodreads.dtos.UserDto;
 import africa.semicolon.goodreads.exception.GoodReadsException;
 import africa.semicolon.goodreads.models.User;
 import africa.semicolon.goodreads.services.UserServices;
+import com.mashape.unirest.http.exceptions.UnirestException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,7 +31,7 @@ public class UserController {
     }
 
     @PostMapping("/")
-    public ResponseEntity<?> createUser(@RequestBody @Valid @NotNull AccountCreationRequest accountCreationRequest) throws GoodReadsException {
+    public ResponseEntity<?> createUser(@RequestBody @Valid @NotNull AccountCreationRequest accountCreationRequest) {
         try {
             log.info("Account creation request ==> {}", accountCreationRequest);
             UserDto userDto = userServices.createUserAccount(accountCreationRequest);
@@ -46,6 +47,8 @@ public class UserController {
                     .message(e.getMessage())
                     .build();
             return new ResponseEntity<>(apiResponse, HttpStatus.valueOf(e.getStatusCode()));
+        } catch (UnirestException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -87,7 +90,7 @@ public class UserController {
 
     @PatchMapping("/")
     public ResponseEntity<?> updateUserProfile(@Valid @NotNull @NotBlank @RequestParam String id,
-                                               @NotNull @RequestBody UpdateRequest updateRequest) {
+                                               @RequestBody @NotNull UpdateRequest updateRequest) {
         try {
             UserDto update = userServices.updateUserProfile(id, updateRequest);
             ApiResponse apiResponse = ApiResponse.builder()
@@ -104,6 +107,5 @@ public class UserController {
                     .build();
             return new ResponseEntity<>(apiResponse, HttpStatus.valueOf(e.getStatusCode()));
         }
-
     }
 }

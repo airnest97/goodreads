@@ -5,14 +5,17 @@ import africa.semicolon.goodreads.dtos.UserDto;
 import africa.semicolon.goodreads.exception.GoodReadsException;
 import africa.semicolon.goodreads.models.User;
 import africa.semicolon.goodreads.repositories.UserRepository;
+import africa.semicolon.goodreads.services.EmailService;
 import africa.semicolon.goodreads.services.UserServiceImpl;
 import africa.semicolon.goodreads.services.UserServices;
+import com.mashape.unirest.http.exceptions.UnirestException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.modelmapper.ModelMapper;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.Optional;
 
@@ -27,17 +30,21 @@ public class UserServiceMockTest {
     @Mock
     private ModelMapper mapper;
     private UserServices userServices;
+    @Mock
+    private EmailService emailService;
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
 
 //    @Captor
 //    private ArgumentCaptor<User> userArgumentCaptor;
 
     @BeforeEach
     void setUp() {
-        userServices = new UserServiceImpl(userRepository, mapper);
+        userServices = new UserServiceImpl(userRepository, mapper, emailService, applicationEventPublisher);
     }
 
     @Test
-    void userCanCreateAccountTest() throws GoodReadsException {
+    void userCanCreateAccountTest() throws GoodReadsException, UnirestException {
         AccountCreationRequest accountCreationRequest =
                 new AccountCreationRequest("Ernest", "Ehigiator", "ernest@example.com", "password");
 
@@ -79,7 +86,7 @@ public class UserServiceMockTest {
     }
 
     @Test
-    void userEmailIsUniqueTest() throws GoodReadsException {
+    void userEmailIsUniqueTest() throws GoodReadsException, UnirestException {
         AccountCreationRequest accountCreationRequest =
                 new AccountCreationRequest("Ernest", "Ehigiator", "ernest@example.com", "password");
 
