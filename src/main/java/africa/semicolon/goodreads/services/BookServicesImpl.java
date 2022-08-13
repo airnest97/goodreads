@@ -51,6 +51,12 @@ public class BookServicesImpl implements BookServices{
     @Override
     @Async
     public CompletableFuture<Map<String, Credentials>> generateUploadURLs(String fileExtension, String imageExtension) throws ExecutionException, InterruptedException {
+        if (!amazonS3.doesBucketExistV2(FILE_BUCKET)){
+            amazonS3.createBucket(FILE_BUCKET);
+        }
+        if (!amazonS3.doesBucketExistV2(IMAGE_BUCKET)){
+            amazonS3.createBucket(IMAGE_BUCKET);
+        }
         String fileName = UUID.randomUUID()+fileExtension;
         String imageFileName = UUID.randomUUID()+imageExtension;
 
