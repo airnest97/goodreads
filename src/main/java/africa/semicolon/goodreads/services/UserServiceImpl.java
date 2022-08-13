@@ -10,7 +10,7 @@ import africa.semicolon.goodreads.models.Role;
 import africa.semicolon.goodreads.models.User;
 import africa.semicolon.goodreads.repositories.UserRepository;
 import africa.semicolon.goodreads.security.jwt.TokenProvider;
-import com.mashape.unirest.http.exceptions.UnirestException;
+import io.jsonwebtoken.Claims;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -24,8 +24,10 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 
@@ -56,7 +58,7 @@ public class UserServiceImpl implements UserServices, UserDetailsService {
     }
 
     @Override
-    public UserDto createUserAccount(String host, AccountCreationRequest accountCreationRequest) throws GoodReadsException, UnirestException {
+    public UserDto createUserAccount(String host, AccountCreationRequest accountCreationRequest) throws GoodReadsException {
         validate(accountCreationRequest, userRepository);
         User user = new User(accountCreationRequest.getFirstName(), accountCreationRequest.getLastName(),
                 accountCreationRequest.getEmail(), bCryptPasswordEncoder.encode(accountCreationRequest.getPassword()));
@@ -111,7 +113,39 @@ public class UserServiceImpl implements UserServices, UserDetailsService {
 
     @Override
     public void verifyUser(String token) throws GoodReadsException {
+        Claims claims = tokenProvider.getAllClaimsFromJWTToken(token);
+        Function<Claims, String> getSubjectFromClaim = Claims::getSubject;
+        Function<Claims, Date> getExpirationDateFromClaim = Claims::getExpiration;
+        Function<Claims, Date> getIssuedAtDateFromClaim = Claims::getIssuedAt;
 
+        String userId = getSubjectFromClaim.apply(claims);
+        if (userId == null){
+            throw new GoodReadsException("User id not present in verification token", 404);
+        }
+        Date expiryDate = getExpirationDateFromClaim.apply(claims);
+        if (expiryDate == null){
+            throw new GoodReadsException("Expiry Date not present in verification token", 404);
+        }
+        Date issuedAtDate = getIssuedAtDateFromClaim.apply(claims);
+
+        if (issuedAtDate == null){
+            throw new GoodReadsException("Issued At date not present in verification token", 404);
+        }
+
+        if (expiryDate.compareTo(issuedAtDate) > 14.4 ){
+            throw new GoodReadsException("Verification Token has already expired", 404);
+        }
+
+        User user = findUserByIdInternal(userId);
+        if (user == null){
+            throw new GoodReadsException("User id does not exist",404);
+        }
+        user.setVerified(true);
+        userRepository.save(user);
+    }
+
+    private User findUserByIdInternal(String userId) {
+        return userRepository.findById(Long.valueOf(userId)).orElse(null);
     }
 
     private static void validate(AccountCreationRequest accountCreationRequest, UserRepository userRepository) throws GoodReadsException {
@@ -133,9 +167,8 @@ public class UserServiceImpl implements UserServices, UserDetailsService {
     }
 
     private Collection<? extends GrantedAuthority> getAuthorities(Set<Role> roles) {
-        Collection<? extends SimpleGrantedAuthority> authorities = roles.stream().map(
+        return roles.stream().map(
                 role -> new SimpleGrantedAuthority(role.getRoleType().name())
         ).collect(Collectors.toSet());
-        return authorities;
     }
 }

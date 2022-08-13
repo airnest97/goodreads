@@ -89,6 +89,8 @@ public class User {
 
     private String location;
 
+    private boolean isVerified;
+
     @Enumerated(value = EnumType.STRING)
     private AccountStatus accountStatus;
 
