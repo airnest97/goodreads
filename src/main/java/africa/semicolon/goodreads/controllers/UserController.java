@@ -1,16 +1,19 @@
 package africa.semicolon.goodreads.controllers;
 
 import africa.semicolon.goodreads.controllers.requestsAndResponse.ApiResponse;
-import africa.semicolon.goodreads.controllers.requestsAndResponse.AccountCreationRequest;
 import africa.semicolon.goodreads.controllers.requestsAndResponse.UpdateRequest;
+import africa.semicolon.goodreads.dtos.BookDto;
 import africa.semicolon.goodreads.dtos.UserDto;
 import africa.semicolon.goodreads.exception.GoodReadsException;
-import africa.semicolon.goodreads.models.User;
+import africa.semicolon.goodreads.services.BookServices;
 import africa.semicolon.goodreads.services.UserServices;
-import com.mashape.unirest.http.exceptions.UnirestException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.Link;
+import org.springframework.hateoas.config.EnableHypermediaSupport;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
@@ -18,47 +21,31 @@ import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import java.util.List;
 
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
+
 
 @RestController
-@RequestMapping("/api/v1/users")
 @Slf4j
+@RequestMapping("/api/v1/users")
+@EnableHypermediaSupport(type = EnableHypermediaSupport.HypermediaType.HAL)
 public class UserController {
+    private final UserServices userService;
+    private final BookServices bookService;
 
-    private UserServices userServices;
-
-    public UserController(UserServices userServices) {
-        this.userServices = userServices;
+    public UserController(UserServices userService, BookServices bookService) {
+        this.userService = userService;
+        this.bookService = bookService;
     }
-
-    @PostMapping("/")
-    public ResponseEntity<?> createUser(@RequestBody @Valid @NotNull AccountCreationRequest accountCreationRequest) {
-        try {
-            log.info("Account creation request ==> {}", accountCreationRequest);
-            UserDto userDto = userServices.createUserAccount(accountCreationRequest);
-            ApiResponse apiResponse = ApiResponse.builder()
-                    .status("success")
-                    .message("user created successfully")
-                    .data(userDto)
-                    .build();
-            return new ResponseEntity<>(apiResponse, HttpStatus.CREATED);
-        } catch (GoodReadsException e) {
-            ApiResponse apiResponse = ApiResponse.builder()
-                    .status("fails")
-                    .message(e.getMessage())
-                    .build();
-            return new ResponseEntity<>(apiResponse, HttpStatus.valueOf(e.getStatusCode()));
-        } catch (UnirestException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     @GetMapping("/{id}")
-    public ResponseEntity<?> getUser(@PathVariable("id") @Valid @NotNull @NotBlank String userId) {
+    public ResponseEntity<?> getUser(@PathVariable("id") @NotNull @NotBlank String userId) {
         try {
-            if ("null".equals(userId) || ("").equals(userId.trim())) {
-                throw new GoodReadsException("Sting id cannot be null", 404);
+            if (("null").equals(userId) || ("").equals(userId.trim())){
+                throw new GoodReadsException("String id cannot be null", 400);
             }
-            UserDto userDto = userServices.findUserById(userId);
+            UserDto userDto = userService.findUserById(userId);
+            Link selfLink = linkTo(UserController.class).slash(userDto.getId()).withSelfRel();
+            userDto.add(selfLink);
             ApiResponse apiResponse = ApiResponse.builder()
                     .status("success")
                     .message("user found")
@@ -68,44 +55,57 @@ public class UserController {
             return new ResponseEntity<>(apiResponse, HttpStatus.OK);
         } catch (GoodReadsException e) {
             ApiResponse apiResponse = ApiResponse.builder()
-                    .status("fails")
+                    .status("fail")
                     .message(e.getMessage())
-                    .result(0)
                     .build();
             return new ResponseEntity<>(apiResponse, HttpStatus.valueOf(e.getStatusCode()));
         }
     }
 
-    @GetMapping("/")
-    public ResponseEntity<?> getAllUsers() {
-        List<UserDto> users = userServices.findAll();
+    @GetMapping(value = "/", produces = { "application/hal+json" })
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
+    public ResponseEntity<?> getAllUsers(){
+        List<UserDto> users = userService.findAll();
+        for (final UserDto user: users){
+            Long userId = user.getId();
+            Link selfLink = linkTo(UserController.class).slash(userId).withSelfRel();
+            user.add(selfLink);
+
+            List<BookDto> booksUploadedByUser = bookService.getAllBooksForUser(user.getEmail());
+
+            if (booksUploadedByUser.size() > 0){
+                Link booksLink = linkTo(methodOn(UserController.class).getAllBooksForUser(user.getEmail())).withRel("books uploaded");
+                user.add(booksLink);
+            }
+        }
+        Link link = linkTo(UserController.class).withSelfRel();
+        CollectionModel<UserDto> result = CollectionModel.of(users, link);
         ApiResponse apiResponse = ApiResponse.builder()
                 .status("success")
-                .message(users.size() != 0 ? "users found" : "No user exists in database")
-                .data(users)
+                .message(users.size() != 0 ? "users found" : "no user exists in database")
+                .data(result)
                 .result(users.size())
                 .build();
         return new ResponseEntity<>(apiResponse, HttpStatus.OK);
     }
 
+
+    @GetMapping("/books/{email}")
+    public List<BookDto> getAllBooksForUser(@PathVariable("email") @Valid @NotBlank @NotNull String email) {
+        return bookService.getAllBooksForUser(email);
+    }
+
     @PatchMapping("/")
-    public ResponseEntity<?> updateUserProfile(@Valid @NotNull @NotBlank @RequestParam String id,
-                                               @RequestBody @NotNull UpdateRequest updateRequest) {
-        try {
-            UserDto update = userServices.updateUserProfile(id, updateRequest);
-            ApiResponse apiResponse = ApiResponse.builder()
-                    .status("success")
-                    .message("user found")
-                    .data(update)
-                    .result(1)
-                    .build();
-            return new ResponseEntity<>(apiResponse, HttpStatus.OK);
-        } catch (GoodReadsException e) {
-            ApiResponse apiResponse = ApiResponse.builder()
-                    .status("fails")
-                    .message(e.getMessage())
-                    .build();
-            return new ResponseEntity<>(apiResponse, HttpStatus.valueOf(e.getStatusCode()));
-        }
+    public ResponseEntity<?> updateUserProfile(@Valid @NotBlank @NotNull @RequestParam String id,
+                                               @RequestBody @NotNull UpdateRequest updateRequest ) throws GoodReadsException {
+
+        UserDto userDto = userService.updateUserProfile(id, updateRequest);
+        ApiResponse apiResponse = ApiResponse.builder()
+                .status("success")
+                .message("user found")
+                .data(userDto)
+                .result(1)
+                .build();
+        return new ResponseEntity<>(apiResponse, HttpStatus.CREATED);
     }
 }

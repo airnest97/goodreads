@@ -9,7 +9,7 @@ import javax.validation.constraints.Email;
 @Getter
 @Setter
 @Builder
-public class MessageRequest {
+public class VerificationMessageRequest {
     @Email
     private String sender;
     @Email
@@ -17,5 +17,6 @@ public class MessageRequest {
     private String body;
     private String subject;
     private String usersFullName;
-
+    private String verificationToken;
+    private String domainUrl;
 }

@@ -1,13 +1,12 @@
 package africa.semicolon.goodreads.services;
 
 import africa.semicolon.goodreads.models.MailResponse;
-import africa.semicolon.goodreads.models.MessageRequest;
+import africa.semicolon.goodreads.models.VerificationMessageRequest;
 import com.mashape.unirest.http.exceptions.UnirestException;
 
 import java.util.concurrent.CompletableFuture;
 
 public interface EmailService {
-    CompletableFuture<MailResponse> sendSimpleMail(MessageRequest messageRequest) throws UnirestException;
-
-    void sendHtmlMail(MessageRequest messageRequest);
+    CompletableFuture<MailResponse> sendHtmlMail(VerificationMessageRequest messageRequest) throws UnirestException;
+    CompletableFuture<MailResponse> sendSimpleMail(VerificationMessageRequest messageRequest) throws UnirestException;
 }
