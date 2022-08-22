@@ -14,8 +14,7 @@
 	<name>goodreads</name>
 	<description>A web book management system in springboot</description>
 	<properties>
-		<maven.compiler.source>1.8</maven.compiler.source>
-		<maven.compiler.target>1.8</maven.compiler.target>
+		<java.version>11</java.version>
 	</properties>
 	<dependencies>
 		<dependency>
