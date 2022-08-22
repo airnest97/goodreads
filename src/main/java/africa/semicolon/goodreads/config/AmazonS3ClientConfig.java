@@ -17,7 +17,10 @@ public class AmazonS3ClientConfig {
 
     public AmazonS3ClientConfig() {
         accessKeyId = System.getenv("AWSAccessKeyId");
+        System.out.println("access----> "+accessKeyId);
+
         accessKeySecret = System.getenv("AWSSecretKey");
+        System.out.println("secret----> "+accessKeySecret);
     }
 
     @Bean

@@ -3,6 +3,7 @@ package africa.semicolon.goodreads.controllers;
 import org.springframework.http.HttpStatus;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class ApiError {
@@ -26,7 +27,7 @@ public class ApiError {
         super();
         this.status = status;
         this.message = message;
-        errors = Arrays.asList(error);
+        errors = Collections.singletonList(error);
     }
 
 
